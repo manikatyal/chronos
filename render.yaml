@@ -104,11 +104,10 @@ services:
       - key: KAFKA_BOOTSTRAP_SERVERS
         sync: false
 
-  - type: web
+  - type: static
     name: chronos-ui
-    runtime: static
     rootDir: job-console-ui
-    plan: free
+    plan: starter
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     autoDeploy: true
