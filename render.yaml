@@ -3,15 +3,15 @@ services:
     name: chronos-redis
     plan: free
     region: singapore
+    ipAllowList: []
 
   - type: web
     name: chronos-scheduler
-    runtime: java
+    runtime: docker
     rootDir: job-scheduler-service
     plan: free
     region: singapore
-    buildCommand: mvn -q -DskipTests clean package
-    startCommand: java -jar target/job-scheduler-0.0.1-SNAPSHOT.jar
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health
     autoDeploy: true
     envVars:
@@ -56,12 +56,11 @@ services:
 
   - type: web
     name: chronos-worker
-    runtime: java
+    runtime: docker
     rootDir: job-worker-service
     plan: free
     region: singapore
-    buildCommand: mvn -q -DskipTests clean package
-    startCommand: java -jar target/job-worker-0.0.1-SNAPSHOT.jar
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health
     autoDeploy: true
     envVars:
@@ -110,7 +109,6 @@ services:
     runtime: static
     rootDir: job-console-ui
     plan: free
-    region: singapore
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     autoDeploy: true
