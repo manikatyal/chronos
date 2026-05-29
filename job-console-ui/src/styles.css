@@ -1,0 +1,139 @@
+:root {
+  color: #1f2937;
+  background: #f7f7f4;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top left, rgba(233, 226, 209, 0.85), transparent 28%),
+    linear-gradient(180deg, #faf9f6 0%, #f3efe7 100%);
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1.15rem;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  padding: 1.25rem;
+}
+
+.hero-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(248, 245, 238, 0.97)),
+    #fff;
+}
+
+.auth-panel {
+  border-radius: 1rem;
+  background: #fffdfa;
+}
+
+.eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a6f45;
+  font-weight: 700;
+}
+
+.job-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #fcfbf8;
+}
+
+.detail-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7c6f5e;
+  margin-bottom: 0.25rem;
+}
+
+.empty-state {
+  padding: 1.15rem;
+  border: 1px dashed rgba(15, 23, 42, 0.18);
+  border-radius: 1rem;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.json-box {
+  background: #1f2937;
+  color: #f8fafc;
+  border-radius: 0.9rem;
+  padding: 0.9rem;
+  font-size: 0.82rem;
+  overflow: auto;
+}
+
+.textarea-tall {
+  min-height: 7.5rem;
+}
+
+.textarea-mid {
+  min-height: 5rem;
+}
+
+.news-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.news-batch + .news-batch {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.news-item {
+  display: grid;
+  gap: 0.2rem;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  background: #ffffff;
+}
+
+.news-item:hover {
+  border-color: rgba(138, 111, 69, 0.45);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.failed-job-item + .failed-job-item {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.toast-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  z-index: 1080;
+  max-width: 22rem;
+}
+
+.toast-card {
+  background: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+}
+
+code {
+  color: #8a5b15;
+}

@@ -1,0 +1,133 @@
+services:
+  - type: keyvalue
+    name: chronos-redis
+    plan: free
+    region: singapore
+
+  - type: web
+    name: chronos-scheduler
+    runtime: java
+    rootDir: job-scheduler-service
+    plan: free
+    region: singapore
+    buildCommand: mvn -q -DskipTests clean package
+    startCommand: java -jar target/job-scheduler-0.0.1-SNAPSHOT.jar
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    envVars:
+      - key: DB_URL
+        fromDatabase:
+          name: chronos-db
+          property: connectionString
+      - key: DB_USERNAME
+        fromDatabase:
+          name: chronos-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: chronos-db
+          property: password
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: chronos-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: chronos-redis
+          property: port
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: update
+      - key: CHRONOS_RATE_LIMIT_ENABLED
+        value: "true"
+      - key: CHRONOS_ALLOWED_ORIGINS
+        sync: false
+      - key: CHRONOS_JWT_SECRET
+        generateValue: true
+      - key: CHRONOS_INTERNAL_WORKER_REPORT_KEY
+        generateValue: true
+      - key: CHRONOS_BOOTSTRAP_ADMIN_USER_ID
+        value: admin
+      - key: CHRONOS_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+
+  - type: web
+    name: chronos-worker
+    runtime: java
+    rootDir: job-worker-service
+    plan: free
+    region: singapore
+    buildCommand: mvn -q -DskipTests clean package
+    startCommand: java -jar target/job-worker-0.0.1-SNAPSHOT.jar
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    envVars:
+      - key: DB_URL
+        fromDatabase:
+          name: chronos-db
+          property: connectionString
+      - key: DB_USERNAME
+        fromDatabase:
+          name: chronos-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: chronos-db
+          property: password
+      - key: CHRONOS_WORKER_INTERNAL_KEY
+        fromService:
+          type: web
+          name: chronos-scheduler
+          envVarKey: CHRONOS_INTERNAL_WORKER_REPORT_KEY
+      - key: CHRONOS_WORKER_SCHEDULER_FAILURE_ENDPOINT
+        value: https://chronos-scheduler.onrender.com/internal/worker-failures
+      - key: CHRONOS_WORKER_FAILED_JOBS_ENDPOINT
+        value: https://chronos-scheduler.onrender.com/internal/failed-jobs
+      - key: CHRONOS_WORKER_ID
+        value: chronos-worker
+      - key: CHRONOS_WORKER_EMAIL_FROM
+        value: chronos-local@localhost
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: ""
+      - key: MAIL_PASSWORD
+        value: ""
+      - key: CHRONOS_WORKER_NOTIFICATION_ENDPOINT
+        value: ""
+      - key: CHRONOS_WORKER_NEWS_ENDPOINT
+        value: ""
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+
+  - type: web
+    name: chronos-ui
+    runtime: static
+    rootDir: job-console-ui
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SCHEDULER_API_BASE
+        value: https://chronos-scheduler.onrender.com
+      - key: VITE_WORKER_API_BASE
+        value: https://chronos-worker.onrender.com
+      - key: VITE_REALTIME_WS_URL
+        value: wss://chronos-worker.onrender.com/ws
+
+databases:
+  - name: chronos-db
+    databaseName: chronos
+    user: chronos
+    plan: free

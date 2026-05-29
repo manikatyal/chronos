@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: job-worker
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/job_worker}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:job-worker}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      missing-topics-fatal: false
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: 8088
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+chronos:
+  worker:
+    topic:
+      job-execution: ${CHRONOS_WORKER_JOB_EXECUTION_TOPIC:job-execution}
+    email:
+      from-address: ${CHRONOS_WORKER_EMAIL_FROM:${MAIL_USERNAME:}}
+    endpoints:
+      notification: ${CHRONOS_WORKER_NOTIFICATION_ENDPOINT:}
+      payment: ${CHRONOS_WORKER_PAYMENT_ENDPOINT:}
+      order: ${CHRONOS_WORKER_ORDER_ENDPOINT:}
+      hotel: ${CHRONOS_WORKER_HOTEL_ENDPOINT:}
+      sync: ${CHRONOS_WORKER_SYNC_ENDPOINT:}
