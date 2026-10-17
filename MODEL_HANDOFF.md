@@ -65,7 +65,7 @@ API config defaults in UI:
 - WS URL: `VITE_REALTIME_WS_URL` or `ws://127.0.0.1:8088/ws`
 
 WebSocket connect pattern:
-- `ws://.../ws?userId=<session.userId>&role=<session.role>`
+- `ws(s)://<page host>/ws?token=<scheduler JWT>` (identity comes only from the verified token)
 
 ## 3) Job Types and Payload Contracts
 
@@ -126,7 +126,7 @@ UI also supports human-friendly cron presets and maps them to cron expressions.
 ## 5) Realtime Behavior
 
 ## Registration and targeting
-- Worker websocket handler extracts `userId` and `role` query params.
+- `JwtHandshakeInterceptor` verifies the token and puts `userId` and `role` from it into the session.
 - `RealtimeHub` tracks sessions by user and role.
 - Reminder events are sent only to computed recipients.
 - News events are sent only to `requesterUserId`.
