@@ -433,7 +433,7 @@ class JobControllerTest {
                                   "jobName": "DATA_SYNC",
                                   "scheduleType": "CRON",
                                   "schedule": {
-                                    "cronExpression": "*/5 * * * * *"
+                                    "cronExpression": "0 */5 * * * *"
                                   },
                                   "payload": {
                                     "source": "CRM",

@@ -41,9 +41,11 @@ public class JobSchedulePlanner {
 
     private Instant nextCronRun(String cronExpression) {
         String normalized = normalizeCron(cronExpression);
-        return CronExpression.parse(normalized)
-                .next(ZonedDateTime.now(ZoneOffset.UTC))
-                .toInstant();
+        ZonedDateTime next = CronExpression.parse(normalized).next(ZonedDateTime.now(ZoneOffset.UTC));
+        if (next == null) {
+            throw new JobValidationException("schedule.cronExpression never fires");
+        }
+        return next.toInstant();
     }
 
     private String normalizeCron(String expression) {

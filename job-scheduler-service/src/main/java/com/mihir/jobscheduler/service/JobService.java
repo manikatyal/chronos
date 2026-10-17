@@ -48,6 +48,10 @@ public class JobService {
     private final JobSchedulePlanner schedulePlanner;
     private final ObjectMapper objectMapper;
 
+    // Users have no verified email address, so by default only admins may send email (prevents relay abuse).
+    @org.springframework.beans.factory.annotation.Value("${chronos.security.user-email-enabled:false}")
+    private boolean userEmailEnabled;
+
     @Transactional
     public JobResponse createJob(JobRequest request) {
         registry.get(request.jobName()).validatePayload(request.payload());
@@ -357,6 +361,10 @@ public class JobService {
     private void validateRecipientPermissions(JobRequest request) {
         if (request.payload() == null) {
             return;
+        }
+
+        if (request.jobName() == JobName.SEND_EMAIL && !userEmailEnabled) {
+            ensureAdminCanUseBulkMode("Only admins can create email jobs");
         }
 
         if (request.jobName() == JobName.SEND_EMAIL && request.payload().has("emails")) {
