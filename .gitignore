@@ -1,0 +1,13 @@
+
+# build output and local files
+target/
+**/target/
+.DS_Store
+.idea/
+*.iml
+.env
+job-worker-service/generated-reports/
+tmp/
+output/
+node_modules/
+dist/
