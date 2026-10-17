@@ -364,6 +364,7 @@ function useRealtime(session) {
 
     let closedByUs = false;
     let retryTimer = null;
+    let heartbeatTimer = null;
 
     const pushToast = (item) => {
       setToasts((current) => [item, ...current].slice(0, 3));
@@ -375,7 +376,14 @@ function useRealtime(session) {
       const socket = new WebSocket(realtimeUrl(session.accessToken));
       socketRef.current = socket;
 
-      socket.onopen = () => setStatus("live");
+      socket.onopen = () => {
+        setStatus("live");
+        // Heartbeat so proxies and load balancers never see the connection as idle.
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) socket.send("ping");
+        }, 30000);
+      };
       socket.onmessage = (event) => {
         let envelope;
         try {
@@ -398,6 +406,7 @@ function useRealtime(session) {
         }
       };
       socket.onclose = () => {
+        clearInterval(heartbeatTimer);
         setStatus("offline");
         if (!closedByUs) {
           retryTimer = setTimeout(connect, 5000);
@@ -409,6 +418,7 @@ function useRealtime(session) {
     return () => {
       closedByUs = true;
       clearTimeout(retryTimer);
+      clearInterval(heartbeatTimer);
       socketRef.current?.close();
     };
   }, [session?.accessToken]);

@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -112,6 +113,12 @@ class SchedulerSafetyTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(syncJob("* * * * *")))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void kubernetesProbesArePublic() throws Exception {
+        mockMvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk());
+        mockMvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk());
     }
 
     private String syncJob(String cron) {
