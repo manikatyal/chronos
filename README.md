@@ -63,7 +63,7 @@ kubectl create namespace chronos
 kubectl -n chronos create secret generic chronos-secrets --from-literal=DB_PASSWORD="$(openssl rand -hex 16)" --from-literal=CHRONOS_JWT_SECRET="$(openssl rand -base64 48)" --from-literal=CHRONOS_INTERNAL_KEY="$(openssl rand -hex 24)" --from-literal=CHRONOS_BOOTSTRAP_ADMIN_PASSWORD="<choose one>"
 ```
 
-5. In `k8s/kustomization.yaml`, set `PUBLIC_ORIGIN` to your URL and replace `YOUR_GITHUB_USER`, then:
+5. In `k8s/kustomization.yaml`, set `PUBLIC_ORIGIN` to your URL (and the image owner if you fork), then:
 
 ```bash
 kubectl apply -k k8s/

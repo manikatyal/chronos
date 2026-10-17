@@ -18,14 +18,14 @@ configMapGenerator:
       # The public URL users open, e.g. https://chronos-yourname.duckdns.org or http://1.2.3.4.sslip.io
       - PUBLIC_ORIGIN=http://localhost:8080
 
-# Replace YOUR_GITHUB_USER (lowercase) or run: kustomize edit set image ...
+# Images are built and pushed by .github/workflows/ci.yml on every push to main.
 images:
   - name: chronos-scheduler
-    newName: ghcr.io/YOUR_GITHUB_USER/chronos-scheduler
+    newName: ghcr.io/manikatyal/chronos-scheduler
     newTag: latest
   - name: chronos-worker
-    newName: ghcr.io/YOUR_GITHUB_USER/chronos-worker
+    newName: ghcr.io/manikatyal/chronos-worker
     newTag: latest
   - name: chronos-ui
-    newName: ghcr.io/YOUR_GITHUB_USER/chronos-ui
+    newName: ghcr.io/manikatyal/chronos-ui
     newTag: latest
