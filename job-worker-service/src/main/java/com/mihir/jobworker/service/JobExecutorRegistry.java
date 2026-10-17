@@ -9,10 +9,13 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 @Component
 public class JobExecutorRegistry {
+
+    private static final long JOB_TIMEOUT_SECONDS = 60;
 
     private final Map<JobName, ExecutorService> executors = new EnumMap<>(JobName.class);
 
@@ -40,6 +43,9 @@ public class JobExecutorRegistry {
         if (executor == null) {
             throw new JobProcessingException("No executor configured for jobName: " + jobName);
         }
-        return CompletableFuture.supplyAsync(supplier, executor).join();
+        // Bound every job so one hung call cannot block the single Kafka listener thread.
+        return CompletableFuture.supplyAsync(supplier, executor)
+                .orTimeout(JOB_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .join();
     }
 }
