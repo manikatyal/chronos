@@ -1,6 +1,8 @@
 const SCHEDULER_BASE = import.meta.env.VITE_SCHEDULER_API_BASE || "/api/scheduler";
 const WORKER_BASE = import.meta.env.VITE_WORKER_API_BASE || "/api/worker";
-export const REALTIME_WS_URL = import.meta.env.VITE_REALTIME_WS_URL || "ws://127.0.0.1:8088/ws";
+// Same origin as the page by default, so it works behind nginx/ingress on any host.
+export const REALTIME_WS_URL = import.meta.env.VITE_REALTIME_WS_URL
+  || `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
 
 async function parseBody(response) {
   const text = await response.text();
@@ -115,19 +117,34 @@ export const schedulerApi = {
 };
 
 export const workerApi = {
-  getAllExecutions() {
-    return request(WORKER_BASE, "/v1/executions");
+  getAllExecutions(token) {
+    return request(WORKER_BASE, "/v1/executions", { headers: authHeaders(token) });
   },
-  getFailedExecutions() {
-    return request(WORKER_BASE, "/v1/executions/failed");
+  getFailedExecutions(token) {
+    return request(WORKER_BASE, "/v1/executions/failed", { headers: authHeaders(token) });
   },
-  getExecution(jobId) {
-    return request(WORKER_BASE, `/v1/executions/${jobId}`);
+  getExecution(jobId, token) {
+    return request(WORKER_BASE, `/v1/executions/${jobId}`, { headers: authHeaders(token) });
+  },
+  // A plain link cannot send the Bearer header, so download through fetch and save the blob.
+  async downloadReport(fileName, token) {
+    const response = await fetch(`${WORKER_BASE}/v1/reports/failed/${encodeURIComponent(fileName)}`, {
+      headers: authHeaders(token)
+    });
+    if (!response.ok) {
+      throw normalizeError(response.status, await parseBody(response));
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 };
 
-export function reportDownloadUrl(fileName) {
-  return `${WORKER_BASE}/v1/reports/failed/${encodeURIComponent(fileName)}`;
+export function realtimeUrl(token) {
+  return `${REALTIME_WS_URL}?token=${encodeURIComponent(token)}`;
 }
 
 export function errorMessage(error) {
