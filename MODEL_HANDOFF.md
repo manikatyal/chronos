@@ -35,9 +35,8 @@ Important API base used by UI:
 - `/v1/jobs/{jobId}/detail`
 - `/v1/jobs/failed`
 
-Auth bootstrap defaults (unless overridden by env):
-- `userId: admin`
-- `password: admin12345`
+Auth bootstrap: an admin is created at startup only when `CHRONOS_BOOTSTRAP_ADMIN_USER_ID` and
+`CHRONOS_BOOTSTRAP_ADMIN_PASSWORD` are set (see `.env.example`). There is no default password.
 
 ### Worker (`job-worker-service`)
 Primary responsibilities:
