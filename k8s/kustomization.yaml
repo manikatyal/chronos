@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: chronos
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - redis.yaml
+  - kafka.yaml
+  - scheduler.yaml
+  - worker.yaml
+  - ui.yaml
+  - ingress.yaml
+
+configMapGenerator:
+  - name: chronos-config
+    literals:
+      # The public URL users open, e.g. https://chronos-yourname.duckdns.org or http://1.2.3.4.sslip.io
+      - PUBLIC_ORIGIN=http://localhost:8080
+
+# Images are built and pushed by .github/workflows/ci.yml on every push to main.
+images:
+  - name: chronos-scheduler
+    newName: ghcr.io/manikatyal/chronos-scheduler
+    newTag: latest
+  - name: chronos-worker
+    newName: ghcr.io/manikatyal/chronos-worker
+    newTag: latest
+  - name: chronos-ui
+    newName: ghcr.io/manikatyal/chronos-ui
+    newTag: latest

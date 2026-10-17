@@ -7,8 +7,13 @@ import jakarta.validation.ConstraintValidatorContext;
 import org.springframework.scheduling.support.CronExpression;
 
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.Duration;
 
 public class JobRequestValidator implements ConstraintValidator<ValidJobRequest, JobRequest> {
+
+    private static final long MIN_CRON_GAP_SECONDS = 60;
 
     @Override
     public boolean isValid(JobRequest request, ConstraintValidatorContext context) {
@@ -48,22 +53,32 @@ public class JobRequestValidator implements ConstraintValidator<ValidJobRequest,
         valid &= require(request.schedule().runAt() == null, context, "schedule.runAt must be null for CRON");
         valid &= require(request.schedule().cronExpression() != null && !request.schedule().cronExpression().isBlank(),
                 context, "schedule.cronExpression is required for CRON");
-        valid &= require(isValidCron(request.schedule().cronExpression()), context, "schedule.cronExpression is invalid");
+        String cronError = cronError(request.schedule().cronExpression());
+        valid &= require(cronError == null, context, cronError);
         return valid;
     }
 
-    private boolean isValidCron(String expression) {
+    private String cronError(String expression) {
         if (expression == null || expression.isBlank()) {
-            return false;
+            return "schedule.cronExpression is invalid";
         }
         String[] fields = expression.trim().split("\\s+");
         String normalized = fields.length == 5 ? "0 " + expression.trim() : expression.trim();
+        CronExpression cron;
         try {
-            CronExpression.parse(normalized);
-            return true;
+            cron = CronExpression.parse(normalized);
         } catch (IllegalArgumentException exception) {
-            return false;
+            return "schedule.cronExpression is invalid";
         }
+        ZonedDateTime first = cron.next(ZonedDateTime.now(ZoneOffset.UTC));
+        if (first == null) {
+            return "schedule.cronExpression never fires";
+        }
+        ZonedDateTime second = cron.next(first);
+        if (second != null && Duration.between(first, second).getSeconds() < MIN_CRON_GAP_SECONDS) {
+            return "schedule.cronExpression must not run more than once a minute";
+        }
+        return null;
     }
 
     private boolean require(boolean condition, ConstraintValidatorContext context, String message) {

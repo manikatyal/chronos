@@ -1,3 +1,0 @@
-jobId,jobName,scheduleType,status,failureSource,executionId,logTag,workerId,retryCount,failureReason,failedAt,createdBy,createdAt
-5,HOTEL_NIGHT_AUDIT,DELAYED,COMPLETED,WORKER,5_2026-03-30T20:54:10.323093Z,chronos:5_2026-03-30T20:54:10.323093Z,job-worker,0,Endpoint is not configured for jobName: HOTEL_NIGHT_AUDIT,2026-03-30T20:54:10.832262Z,admin,2026-03-30T20:54:09.321331Z
-4,GENERATE_REPORT,DELAYED,COMPLETED,WORKER,4_2026-03-30T20:53:49.765019Z,chronos:4_2026-03-30T20:53:49.765019Z,job-worker,0,unsupported URI http:/127.0.0.1:8087/internal/failed-jobs?fromTime=2026-02-28T20:53:50.592368Z,2026-03-30T20:53:50.600825Z,admin,2026-03-30T20:53:48.763695Z

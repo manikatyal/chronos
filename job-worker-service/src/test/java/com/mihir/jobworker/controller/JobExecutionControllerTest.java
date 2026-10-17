@@ -129,6 +129,7 @@ payload.put("body", "Test body");
                 payload));
 
         mockMvc.perform(get("/v1/executions/{jobId}", 101L)
+                        .header("Authorization", bearer("admin", "ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.jobId").value(101))
@@ -199,7 +200,7 @@ payload.put("body", "Test body");
                 ScheduleType.DELAYED,
                 payload));
 
-        mockMvc.perform(get("/v1/executions/failed"))
+        mockMvc.perform(get("/v1/executions/failed").header("Authorization", bearer("admin", "ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].jobId").value(303))
                 .andExpect(jsonPath("$[0].executionId").value("303_2026-03-25T10:00:00Z"))
@@ -318,6 +319,7 @@ payload.put("body", "Test body");
                 payload));
 
         mockMvc.perform(get("/v1/executions/{jobId}", 808L)
+                        .header("Authorization", bearer("admin", "ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
@@ -327,5 +329,38 @@ payload.put("body", "Test body");
                 .andExpect(jsonPath("$.result.articleCount").value(2))
                 .andExpect(jsonPath("$.result.articles[0].headline").value("India headline one"))
                 .andExpect(jsonPath("$.result.articles[0].link").value("https://news.example.com/one"));
+    }
+
+    @Test
+    void executionsWithoutTokenShouldReturnUnauthorized() throws Exception {
+        mockMvc.perform(get("/v1/executions"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void executionsWithUserTokenShouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/v1/executions").header("Authorization", bearer("alice", "USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void executionsWithForgedSignatureShouldReturnUnauthorized() throws Exception {
+        String token = bearer("admin", "ADMIN");
+        String forged = token.substring(0, token.length() - 2) + "xx";
+        mockMvc.perform(get("/v1/executions").header("Authorization", forged))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String bearer(String userId, String role) throws Exception {
+        java.util.Base64.Encoder encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+        String header = encoder.encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        long exp = Instant.now().plusSeconds(600).getEpochSecond();
+        String payload = encoder.encodeToString(("{\"sub\":\"" + userId + "\",\"role\":\"" + role + "\",\"exp\":" + exp + "}")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(
+                "test-worker-jwt-secret-at-least-32-chars-long".getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+        String signature = encoder.encodeToString(mac.doFinal((header + "." + payload).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return "Bearer " + header + "." + payload + "." + signature;
     }
 }

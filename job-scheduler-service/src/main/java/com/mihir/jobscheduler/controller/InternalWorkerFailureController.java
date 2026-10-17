@@ -27,7 +27,7 @@ public class InternalWorkerFailureController {
 
     private final JobService jobService;
 
-    @Value("${chronos.internal.worker-report-key:change-this-internal-key}")
+    @Value("${chronos.internal.worker-report-key}")
     private String workerReportKey;
 
     @PostMapping("/worker-failures")
@@ -48,7 +48,9 @@ public class InternalWorkerFailureController {
     }
 
     private void ensureInternalAccess(String providedKey) {
-        if (!workerReportKey.equals(providedKey)) {
+        if (providedKey == null || !java.security.MessageDigest.isEqual(
+                workerReportKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                providedKey.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             throw new AccessDeniedException("Invalid internal worker report key");
         }
     }

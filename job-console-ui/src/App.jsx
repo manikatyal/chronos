@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { errorMessage, schedulerApi } from "./api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { errorMessage, realtimeUrl, schedulerApi, workerApi } from "./api";
 
 const JOB_OPTIONS = [
-  { value: "SEND_EMAIL", label: "Send Email", adminOnly: false },
+  { value: "SEND_EMAIL", label: "Send Email", adminOnly: true },
   { value: "SEND_NOTIFICATION", label: "Send Reminder", adminOnly: false },
   { value: "FETCH_NEWS_HEADLINES", label: "Fetch News (India, Gold, Stocks)", adminOnly: false },
   { value: "GENERATE_REPORT", label: "Generate Failed Jobs Report", adminOnly: true }
@@ -205,7 +205,7 @@ function cronScheduleSummary(form) {
   if (form.cronMode === "EVERY_HOUR") {
     const minute = Number(form.cronMinute || "0");
     const safeMinute = Number.isFinite(minute) ? Math.min(59, Math.max(0, minute)) : 0;
-    return `Runs every hour at minute ${String(safeMinute).padStart(2, "0")}.`;
+    return `Runs every hour at minute ${String(safeMinute).padStart(2, "0")} (UTC).`;
   }
 
   if (form.cronMode === "EVERY_N_HOURS") {
@@ -213,12 +213,12 @@ function cronScheduleSummary(form) {
     const safeInterval = Number.isFinite(interval) ? Math.min(23, Math.max(1, interval)) : 2;
     const minute = Number(form.cronMinute || "0");
     const safeMinute = Number.isFinite(minute) ? Math.min(59, Math.max(0, minute)) : 0;
-    return `Runs every ${safeInterval} hour(s) at minute ${String(safeMinute).padStart(2, "0")}.`;
+    return `Runs every ${safeInterval} hour(s) at minute ${String(safeMinute).padStart(2, "0")} (UTC).`;
   }
 
   if (form.cronMode === "WEEKLY_AT_TIME") {
     const selectedDay = WEEKDAY_OPTIONS.find((option) => option.value === String(form.cronWeekday || "1"));
-    return `Runs every ${selectedDay?.label || "Monday"} at ${formatTimeLabel(form.cronTime)}.`;
+    return `Runs every ${selectedDay?.label || "Monday"} at ${formatTimeLabel(form.cronTime)} (UTC).`;
   }
 
   if (form.cronMode === "CUSTOM") {
@@ -226,10 +226,10 @@ function cronScheduleSummary(form) {
     if (!cron) {
       return "Enter a valid 5 or 6 field cron expression.";
     }
-    return `Custom cron expression: ${cron}`;
+    return `Custom cron expression: ${cron} (evaluated in UTC)`;
   }
 
-  return `Runs every day at ${formatTimeLabel(form.cronTime)}.`;
+  return `Runs every day at ${formatTimeLabel(form.cronTime)} (UTC).`;
 }
 
 function buildPayload(form, session) {
@@ -342,6 +342,90 @@ function hydrateForm(detail, session) {
   };
 }
 
+const MAX_ITEMS = 10;
+
+// Live events from the worker: reminder toasts, news batches and (for admins) reports.
+function useRealtime(session) {
+  const [status, setStatus] = useState("offline");
+  const [reminders, setReminders] = useState([]);
+  const [news, setNews] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [toasts, setToasts] = useState([]);
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setStatus("offline");
+      setReminders([]);
+      setNews([]);
+      setReports([]);
+      return undefined;
+    }
+
+    let closedByUs = false;
+    let retryTimer = null;
+    let heartbeatTimer = null;
+
+    const pushToast = (item) => {
+      setToasts((current) => [item, ...current].slice(0, 3));
+      setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== item.id)), 6000);
+    };
+
+    const connect = () => {
+      setStatus("connecting");
+      const socket = new WebSocket(realtimeUrl(session.accessToken));
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        setStatus("live");
+        // Heartbeat so proxies and load balancers never see the connection as idle.
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) socket.send("ping");
+        }, 30000);
+      };
+      socket.onmessage = (event) => {
+        let envelope;
+        try {
+          envelope = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        const data = envelope.data || {};
+        if (envelope.type === "bootstrap") {
+          setReminders((data.notifications || []).slice(0, MAX_ITEMS));
+          setNews((data.news || []).slice(0, MAX_ITEMS));
+          setReports((data.reports || []).slice(0, MAX_ITEMS));
+        } else if (envelope.type === "reminder") {
+          setReminders((current) => [data, ...current].slice(0, MAX_ITEMS));
+          pushToast(data);
+        } else if (envelope.type === "news") {
+          setNews((current) => [data, ...current].slice(0, MAX_ITEMS));
+        } else if (envelope.type === "report") {
+          setReports((current) => [data, ...current].slice(0, MAX_ITEMS));
+        }
+      };
+      socket.onclose = () => {
+        clearInterval(heartbeatTimer);
+        setStatus("offline");
+        if (!closedByUs) {
+          retryTimer = setTimeout(connect, 5000);
+        }
+      };
+    };
+
+    connect();
+    return () => {
+      closedByUs = true;
+      clearTimeout(retryTimer);
+      clearInterval(heartbeatTimer);
+      socketRef.current?.close();
+    };
+  }, [session?.accessToken]);
+
+  return { status, reminders, news, reports, toasts };
+}
+
 export default function App() {
   const [session, setSession] = useState(readSession);
   const [authMode, setAuthMode] = useState("login");
@@ -353,6 +437,16 @@ export default function App() {
     auth: false,
     submit: false
   });
+
+  const realtime = useRealtime(session);
+
+  async function downloadReport(fileName) {
+    try {
+      await workerApi.downloadReport(fileName, session.accessToken);
+    } catch (error) {
+      setInfoMessage(errorMessage(error));
+    }
+  }
 
   const visibleJobOptions = useMemo(
     () => JOB_OPTIONS.filter((option) => session?.role === "ADMIN" || !option.adminOnly),
@@ -572,7 +666,7 @@ export default function App() {
 
                       {jobForm.cronMode === "DAILY_AT_TIME" && (
                         <div className="col-12">
-                          <label className="form-label">Time</label>
+                          <label className="form-label">Time (UTC)</label>
                           <input type="time" className="form-control" name="cronTime" value={jobForm.cronTime} onChange={handleFieldChange} disabled={!session} />
                         </div>
                       )}
@@ -606,7 +700,7 @@ export default function App() {
                             </select>
                           </div>
                           <div className="col-md-6">
-                            <label className="form-label">Time</label>
+                            <label className="form-label">Time (UTC)</label>
                             <input type="time" className="form-control" name="cronTime" value={jobForm.cronTime} onChange={handleFieldChange} disabled={!session} />
                           </div>
                         </>
@@ -745,10 +839,89 @@ export default function App() {
               </form>
             </div>
 
+            {session && (
+              <div className="panel mt-4">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <div className="eyebrow">Live activity</div>
+                    <h2 className="h5 mb-0">Results from the worker</h2>
+                  </div>
+                  <span className={`badge ${realtime.status === "live" ? "text-bg-success" : "text-bg-secondary"}`}>
+                    {realtime.status}
+                  </span>
+                </div>
+
+                <h3 className="h6">Reminders</h3>
+                {realtime.reminders.length === 0 ? (
+                  <p className="small text-secondary">No reminders yet. Create a reminder job to see it here.</p>
+                ) : (
+                  <ul className="list-group mb-3">
+                    {realtime.reminders.map((item) => (
+                      <li key={item.id} className="list-group-item">
+                        <div className="fw-semibold">{item.title}</div>
+                        <div className="small">{item.message}</div>
+                        <div className="small text-secondary">{formatDate(item.receivedAt)}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <h3 className="h6">News</h3>
+                {realtime.news.length === 0 ? (
+                  <p className="small text-secondary">No headlines yet. Create a news job to see them here.</p>
+                ) : (
+                  realtime.news.slice(0, 1).map((batch) => (
+                    <div key={batch.id} className="mb-3">
+                      <div className="small text-secondary mb-1">
+                        {batch.categoryLabel} · {batch.articleCount} headlines · {formatDate(batch.fetchedAt)}
+                      </div>
+                      <ul className="small mb-0">
+                        {(batch.articles || []).map((article, index) => (
+                          <li key={`${batch.id}-${index}`}>
+                            <a href={article.link} target="_blank" rel="noreferrer">{article.headline}</a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
+
+                {session.role === "ADMIN" && (
+                  <>
+                    <h3 className="h6">Reports</h3>
+                    {realtime.reports.length === 0 ? (
+                      <p className="small text-secondary mb-0">No reports yet.</p>
+                    ) : (
+                      <ul className="list-group">
+                        {realtime.reports.map((report) => (
+                          <li key={report.id} className="list-group-item d-flex justify-content-between align-items-center">
+                            <span className="small">{report.window} · {report.rowCount} rows · {formatDate(report.generatedAt)}</span>
+                            {report.fileName && (
+                              <button className="btn btn-outline-dark btn-sm" onClick={() => downloadReport(report.fileName)}>Download</button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       </div>
 
+      <div className="toast-container position-fixed top-0 end-0 p-3">
+        {realtime.toasts.map((toast) => (
+          <div key={toast.id} className="toast show" role="status">
+            <div className="toast-header">
+              <strong className="me-auto">{toast.title}</strong>
+            </div>
+            <div className="toast-body">{toast.message}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

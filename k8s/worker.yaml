@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+spec:
+  selector:
+    app: worker
+  ports:
+    - port: 8088
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  # Must stay at 1: realtime sessions and history live in this pod's memory.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: worker
+          image: chronos-worker
+          ports:
+            - containerPort: 8088
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:MaxRAMPercentage=75
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/job_worker
+            - name: DB_USERNAME
+              value: postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: chronos-secrets, key: DB_PASSWORD }
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: CHRONOS_JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: chronos-secrets, key: CHRONOS_JWT_SECRET }
+            - name: CHRONOS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef: { name: chronos-config, key: PUBLIC_ORIGIN }
+            - name: CHRONOS_WORKER_INTERNAL_KEY
+              valueFrom:
+                secretKeyRef: { name: chronos-secrets, key: CHRONOS_INTERNAL_KEY }
+            - name: CHRONOS_WORKER_SCHEDULER_FAILURE_ENDPOINT
+              value: http://scheduler:8087/internal/worker-failures
+            - name: CHRONOS_WORKER_FAILED_JOBS_ENDPOINT
+              value: http://scheduler:8087/internal/failed-jobs
+            - name: CHRONOS_WORKER_ID
+              value: job-worker
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef: { name: chronos-secrets, key: MAIL_USERNAME, optional: true }
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: chronos-secrets, key: MAIL_PASSWORD, optional: true }
+            - name: MANAGEMENT_HEALTH_MAIL_ENABLED
+              value: "false"
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8088 }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8088 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8088 }
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 100m
+            limits:
+              memory: 640Mi
+          volumeMounts:
+            - name: reports
+              mountPath: /app/generated-reports
+      volumes:
+        - name: reports
+          emptyDir: {}
